@@ -1,3 +1,6 @@
+import datetime
+
+import numpy as np
 import pytest
 
 import pandas.core.dtypes.concat as _concat
@@ -8,7 +11,6 @@ import pandas._testing as tm
 
 
 def test_concat_mismatched_categoricals_with_empty():
-    # concat_compat behavior on series._values should match pd.concat on series
     ser1 = Series(["a", "b", "c"], dtype="category")
     ser2 = Series([], dtype="category")
 
@@ -22,7 +24,7 @@ def test_concat_mismatched_categoricals_with_empty():
 
 @pytest.mark.parametrize("copy", [True, False])
 def test_concat_single_dataframe_tz_aware(copy):
-    # https://github.com/pandas-dev/pandas/issues/25257
+    # GH 25257
     df = pd.DataFrame(
         {"timestamp": [pd.Timestamp("2020-04-08 09:00:00.709949+0000", tz="UTC")]}
     )
@@ -49,3 +51,13 @@ def test_concat_periodarray_2d():
 
     with pytest.raises(ValueError, match=msg):
         _concat.concat_compat([arr[:2], arr[2:]], axis=1)
+
+
+def test_concatenate_datetime_and_category():
+    # GH 33331
+    np_datetimes = np.array([datetime.date(2010, 1, 1)], dtype="datetime64[D]")
+    other = pd.array(["a", "b"], dtype="category")
+    np_datetimes_series = Series(np_datetimes)
+    result = pd.concat([np_datetimes_series, Series(other)], ignore_index=True)
+    expected_result = Series([pd.Timestamp("2010-01-01"), "a", "b"])
+    tm.assert_series_equal(result, expected_result)
